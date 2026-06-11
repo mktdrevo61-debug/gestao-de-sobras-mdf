@@ -210,7 +210,7 @@ function App() {
       {/* Global Nav with Logo */}
       <nav className="global-nav">
         <div className="global-nav-content">
-          <img src="/logo.png" alt="Drevo Logo" className="logo-img" />
+          <img src="./logo.png" alt="Drevo Logo" className="logo-img" />
           <span className="global-nav-title">Gestão de Sobras</span>
         </div>
       </nav>
