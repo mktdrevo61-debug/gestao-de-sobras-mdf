@@ -1,0 +1,166 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+
+:root {
+  /* Apple Design System Tokens (Modified to Drevo Red) */
+  --color-primary: #cc1a1a; /* Drevo Logo Red (Softened for UI) */
+  --color-primary-focus: #a81515; /* Darker Drevo red for focus */
+  --color-primary-on-dark: #ff4d4d; /* Brighter red for dark backgrounds */
+  --color-ink: #1d1d1f;
+  --color-body: #1d1d1f;
+  --color-body-on-dark: #ffffff;
+  --color-body-muted: #cccccc;
+  --color-ink-muted-80: #333333;
+  --color-ink-muted-48: #7a7a7a;
+  --color-divider-soft: rgba(0, 0, 0, 0.04);
+  --color-hairline: #e0e0e0;
+  --color-canvas: #ffffff;
+  --color-canvas-parchment: #f5f5f7;
+  --color-surface-pearl: #fafafc;
+  --color-surface-tile-1: #272729;
+  --color-surface-tile-2: #2a2a2c;
+  --color-surface-tile-3: #252527;
+  --color-surface-black: #000000;
+  --color-surface-chip-translucent: rgba(210, 210, 215, 0.64);
+  --color-on-primary: #ffffff;
+  --color-on-dark: #ffffff;
+
+  /* Typography */
+  --font-family-display: "Inter", system-ui, -apple-system, sans-serif;
+  --font-family-body: "Inter", system-ui, -apple-system, sans-serif;
+
+  /* Spacing */
+  --spacing-xxs: 4px;
+  --spacing-xs: 8px;
+  --spacing-sm: 12px;
+  --spacing-md: 17px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-xxl: 48px;
+  --spacing-section: 80px;
+
+  /* Radii */
+  --rounded-none: 0px;
+  --rounded-xs: 5px;
+  --rounded-sm: 8px;
+  --rounded-md: 11px;
+  --rounded-lg: 18px;
+  --rounded-pill: 9999px;
+  --rounded-full: 9999px;
+
+  /* Shadows */
+  --shadow-product: rgba(0, 0, 0, 0.22) 3px 5px 30px 0;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-family-body);
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1.44; /* Inter adjust from 1.47 */
+  letter-spacing: -0.374px;
+  color: var(--color-body);
+  background-color: var(--color-canvas-parchment);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-family-display);
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.typography-hero-display {
+  font-size: 56px;
+  line-height: 1.07;
+  letter-spacing: -0.29em; /* approx for inter */
+}
+
+.typography-display-lg {
+  font-size: 40px;
+  line-height: 1.1;
+  letter-spacing: -0.01em; /* Inter adj */
+}
+
+.typography-tagline {
+  font-size: 21px;
+  font-weight: 600;
+  line-height: 1.19;
+  letter-spacing: 0.231px;
+}
+
+.typography-body-strong {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.24;
+  letter-spacing: -0.374px;
+}
+
+.typography-caption {
+  font-size: 14px;
+  line-height: 1.43;
+  letter-spacing: -0.224px;
+}
+
+/* Button Components */
+button {
+  font-family: var(--font-family-body);
+  border: none;
+  cursor: pointer;
+  transition: transform 0.15s ease-out;
+}
+
+button:active {
+  transform: scale(0.95);
+}
+
+.btn-primary {
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+  font-size: 17px;
+  border-radius: var(--rounded-pill);
+  padding: 11px 22px;
+  font-weight: 400;
+}
+
+.btn-primary:focus-visible {
+  outline: 2px solid var(--color-primary-focus);
+  outline-offset: 2px;
+}
+
+.btn-dark-utility {
+  background-color: var(--color-ink);
+  color: var(--color-on-dark);
+  font-size: 14px;
+  border-radius: var(--rounded-sm);
+  padding: 8px 15px;
+  letter-spacing: -0.224px;
+}
+
+.btn-ghost-pill {
+  background-color: transparent;
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  font-size: 17px;
+  border-radius: var(--rounded-pill);
+  padding: 11px 22px;
+}
+
+/* Layout */
+.container {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 0 var(--spacing-lg);
+}
+
+/* Utilities */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 24px;
+}
