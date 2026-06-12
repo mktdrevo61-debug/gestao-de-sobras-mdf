@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
+import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore'
+import { db } from './firebase'
 import './App.css'
 
 function App() {
@@ -17,41 +19,70 @@ function App() {
   const fileInputRef = useRef(null)
 
   useEffect(() => {
+    // Migração transparente do localStorage para a Nuvem na primeira vez
     const savedItems = localStorage.getItem('mdfStock')
-    if (savedItems) setItems(JSON.parse(savedItems))
-    
-    const savedHistory = localStorage.getItem('mdfHistory')
-    if (savedHistory) setHistory(JSON.parse(savedHistory))
+    if (savedItems && !localStorage.getItem('migratedToFirebase')) {
+       const parsed = JSON.parse(savedItems);
+       parsed.forEach(item => {
+         setDoc(doc(db, 'items', item.id.toString()), item);
+       });
+       const savedHistory = localStorage.getItem('mdfHistory')
+       if (savedHistory) {
+         const parsedHist = JSON.parse(savedHistory);
+         parsedHist.forEach(log => {
+           setDoc(doc(db, 'history', (log.id || Date.now()).toString()), { ...log, timestamp: Date.now() });
+         });
+       }
+       const savedUrl = localStorage.getItem('sheetsUrl')
+       if (savedUrl) setDoc(doc(db, 'settings', 'global'), { sheetsUrl: savedUrl });
+       localStorage.setItem('migratedToFirebase', 'true');
+    }
 
-    const savedUrl = localStorage.getItem('sheetsUrl')
-    if (savedUrl) setSheetsUrl(savedUrl)
+    // Sincronização em Tempo Real (Firebase)
+    const unsubItems = onSnapshot(collection(db, 'items'), (snapshot) => {
+      const itemsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setItems(itemsList);
+    });
+
+    const unsubHistory = onSnapshot(collection(db, 'history'), (snapshot) => {
+      const historyList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      historyList.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      setHistory(historyList);
+    });
+
+    const unsubSettings = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
+      if (docSnap.exists() && docSnap.data().sheetsUrl) {
+        setSheetsUrl(docSnap.data().sheetsUrl);
+      }
+    });
+
+    return () => {
+      unsubItems();
+      unsubHistory();
+      unsubSettings();
+    }
   }, [])
 
-  const saveItems = (newItems) => {
-    setItems(newItems)
-    localStorage.setItem('mdfStock', JSON.stringify(newItems))
-  }
-
-  const logMovement = (type, details, color) => {
+  const logMovement = async (type, details, color) => {
+    const timestamp = Date.now();
     const newLog = {
-      id: Date.now().toString(),
       date: new Date().toLocaleString('pt-BR'),
+      timestamp,
       type, // 'ENTRADA', 'CORTE', 'SAIDA'
       color,
       details
     }
-    const updatedHistory = [newLog, ...history]
-    setHistory(updatedHistory)
-    localStorage.setItem('mdfHistory', JSON.stringify(updatedHistory))
+    
+    // Salva na Nuvem
+    await setDoc(doc(collection(db, 'history'), timestamp.toString()), newLog);
 
-    // Enviar dados pro Google Sheets em background
-    const currentUrl = localStorage.getItem('sheetsUrl') || sheetsUrl;
-    if (currentUrl && currentUrl.includes('script.google.com')) {
-      fetch(currentUrl, {
+    // Continua enviando pro Sheets se configurado
+    if (sheetsUrl && sheetsUrl.includes('script.google.com')) {
+      fetch(sheetsUrl, {
         method: 'POST',
-        mode: 'no-cors', // Previne block do navegador
+        mode: 'no-cors',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newLog)
+        body: JSON.stringify({ ...newLog, id: timestamp.toString() })
       }).catch(err => console.error("Erro ao enviar pro Sheets: ", err))
     }
   }
@@ -118,18 +149,15 @@ function App() {
     }
   }
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault()
     if (!formData.color || !formData.length || !formData.width || !formData.thickness) return
 
     if (editingItemId) {
-      const updatedItems = items.map(item => 
-        item.id === editingItemId ? { ...formData, id: editingItemId } : item
-      )
-      saveItems(updatedItems)
+      await setDoc(doc(db, 'items', editingItemId.toString()), formData, { merge: true });
     } else {
-      const itemToAdd = { ...formData, id: Date.now().toString() }
-      saveItems([...items, itemToAdd])
+      const newId = Date.now().toString()
+      await setDoc(doc(db, 'items', newId), formData);
       
       const clientText = formData.clientName ? ` (Cliente: ${formData.clientName})` : '';
       logMovement('ENTRADA', `Adicionado ${formData.quantity} un de ${formData.length}x${formData.width}mm (${formData.thickness}mm)${clientText}`, formData.color)
@@ -138,13 +166,15 @@ function App() {
     setIsModalOpen(false)
   }
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if(window.confirm('Tem certeza que deseja excluir?')) {
       const itemToDelete = items.find(i => i.id === id)
-      saveItems(items.filter(item => item.id !== id))
+      await deleteDoc(doc(db, 'items', id.toString()))
       
-      const clientText = itemToDelete.clientName ? ` (Cliente: ${itemToDelete.clientName})` : '';
-      logMovement('SAIDA', `Excluído do estoque (${itemToDelete.length}x${itemToDelete.width}mm)${clientText}`, itemToDelete.color)
+      if (itemToDelete) {
+        const clientText = itemToDelete.clientName ? ` (Cliente: ${itemToDelete.clientName})` : '';
+        logMovement('SAIDA', `Excluído do estoque (${itemToDelete.length}x${itemToDelete.width}mm)${clientText}`, itemToDelete.color)
+      }
     }
   }
 
@@ -396,8 +426,8 @@ function App() {
                   type="button" 
                   className="btn-primary" 
                   onClick={() => {
-                    localStorage.setItem('sheetsUrl', sheetsUrl);
-                    alert('Conexão com Google Sheets salva com sucesso! Os próximos registros serão enviados automaticamente.');
+                    setDoc(doc(db, 'settings', 'global'), { sheetsUrl });
+                    alert('Conexão salva na nuvem com sucesso! Toda a equipe agora compartilha dessa planilha.');
                   }}
                 >
                   Salvar Conexão
@@ -502,13 +532,17 @@ function App() {
                       type="button" 
                       className="btn-dark-utility" 
                       style={{ backgroundColor: 'var(--color-ink-muted-80)' }}
-                      onClick={() => {
+                      onClick={async () => {
                         const input = document.getElementById('cutAmountInput');
                         const requesterInput = document.getElementById('cutRequesterInput');
                         const cut = Number(input.value);
                         const requester = requesterInput.value ? ` (Pedido por: ${requesterInput.value})` : '';
                         if (cut > 0 && formData.length) {
-                          setFormData({...formData, length: Math.max(0, formData.length - cut)});
+                          const newLength = Math.max(0, formData.length - cut);
+                          setFormData({...formData, length: newLength});
+                          if (editingItemId) {
+                            await setDoc(doc(db, 'items', editingItemId.toString()), { length: newLength }, { merge: true });
+                          }
                           logMovement('CORTE', `Cortado ${cut}mm do Comprimento${requester}`, formData.color);
                           input.value = '';
                           requesterInput.value = '';
@@ -521,13 +555,17 @@ function App() {
                       type="button" 
                       className="btn-dark-utility" 
                       style={{ backgroundColor: 'var(--color-ink-muted-80)' }}
-                      onClick={() => {
+                      onClick={async () => {
                         const input = document.getElementById('cutAmountInput');
                         const requesterInput = document.getElementById('cutRequesterInput');
                         const cut = Number(input.value);
                         const requester = requesterInput.value ? ` (Pedido por: ${requesterInput.value})` : '';
                         if (cut > 0 && formData.width) {
-                          setFormData({...formData, width: Math.max(0, formData.width - cut)});
+                          const newWidth = Math.max(0, formData.width - cut);
+                          setFormData({...formData, width: newWidth});
+                          if (editingItemId) {
+                            await setDoc(doc(db, 'items', editingItemId.toString()), { width: newWidth }, { merge: true });
+                          }
                           logMovement('CORTE', `Cortado ${cut}mm da Largura${requester}`, formData.color);
                           input.value = '';
                           requesterInput.value = '';
