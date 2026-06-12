@@ -602,14 +602,19 @@ function App() {
               <div style={{ display: 'flex', gap: '12px' }}>
                 <div className="form-group" style={{ flex: 1 }}>
                   <label className="form-label">Espessura (mm)</label>
-                  <input 
-                    type="number" 
+                  <select 
                     className="form-input" 
                     required
-                    placeholder="Ex: 15"
                     value={formData.thickness}
                     onChange={e => setFormData({...formData, thickness: e.target.value})}
-                  />
+                  >
+                    <option value="" disabled>Selecione...</option>
+                    <option value="6">6 mm</option>
+                    <option value="9">9 mm</option>
+                    <option value="15">15 mm</option>
+                    <option value="18">18 mm</option>
+                    <option value="25">25 mm</option>
+                  </select>
                 </div>
                 <div className="form-group" style={{ flex: 1 }}>
                   <label className="form-label">Quantidade</label>
