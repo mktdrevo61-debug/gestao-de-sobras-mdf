@@ -19,41 +19,62 @@ function App() {
   const fileInputRef = useRef(null)
 
   useEffect(() => {
-    // Migração transparente do localStorage para a Nuvem na primeira vez
-    const savedItems = localStorage.getItem('mdfStock')
-    if (savedItems && !localStorage.getItem('migratedToFirebase')) {
-       const parsed = JSON.parse(savedItems);
-       parsed.forEach(item => {
-         setDoc(doc(db, 'items', item.id.toString()), item);
-       });
-       const savedHistory = localStorage.getItem('mdfHistory')
-       if (savedHistory) {
-         const parsedHist = JSON.parse(savedHistory);
-         parsedHist.forEach(log => {
-           setDoc(doc(db, 'history', (log.id || Date.now()).toString()), { ...log, timestamp: Date.now() });
-         });
-       }
-       const savedUrl = localStorage.getItem('sheetsUrl')
-       if (savedUrl) setDoc(doc(db, 'settings', 'global'), { sheetsUrl: savedUrl });
-       localStorage.setItem('migratedToFirebase', 'true');
-    }
+    // Migração robusta e segura
+    const migrateData = async () => {
+      try {
+        const savedItems = localStorage.getItem('mdfStock')
+        if (savedItems && !localStorage.getItem('migratedToFirebase')) {
+           const parsed = JSON.parse(savedItems);
+           for (const item of parsed) {
+             await setDoc(doc(db, 'items', item.id.toString()), item);
+           }
+           const savedHistory = localStorage.getItem('mdfHistory')
+           if (savedHistory) {
+             const parsedHist = JSON.parse(savedHistory);
+             for (const log of parsedHist) {
+               await setDoc(doc(db, 'history', (log.id || Date.now()).toString()), { ...log, timestamp: Date.now() });
+             }
+           }
+           const savedUrl = localStorage.getItem('sheetsUrl')
+           if (savedUrl) await setDoc(doc(db, 'settings', 'global'), { sheetsUrl: savedUrl });
+           
+           localStorage.setItem('migratedToFirebase', 'true');
+           alert("Migração dos dados locais para a Nuvem concluída com sucesso!");
+        }
+      } catch (err) {
+        console.error("Erro de permissão no Firebase:", err);
+      }
+    };
+    migrateData();
 
-    // Sincronização em Tempo Real (Firebase)
+    // Sincronização em Tempo Real (Firebase) com Fallback
     const unsubItems = onSnapshot(collection(db, 'items'), (snapshot) => {
       const itemsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setItems(itemsList);
+    }, (error) => {
+      console.error("Erro Firebase Items:", error);
+      alert("Acesso Negado ao Banco de Dados! Suas informações locais foram recuperadas na tela por segurança. Vá no Firebase e crie o Firestore Database no MODO DE TESTE.");
+      const savedItems = localStorage.getItem('mdfStock');
+      if (savedItems) setItems(JSON.parse(savedItems));
+      localStorage.removeItem('migratedToFirebase'); // Permite tentar migrar de novo
     });
 
     const unsubHistory = onSnapshot(collection(db, 'history'), (snapshot) => {
       const historyList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       historyList.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
       setHistory(historyList);
+    }, (error) => {
+      const savedHistory = localStorage.getItem('mdfHistory');
+      if (savedHistory) setHistory(JSON.parse(savedHistory));
     });
 
     const unsubSettings = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
       if (docSnap.exists() && docSnap.data().sheetsUrl) {
         setSheetsUrl(docSnap.data().sheetsUrl);
       }
+    }, (error) => {
+      const savedUrl = localStorage.getItem('sheetsUrl');
+      if (savedUrl) setSheetsUrl(savedUrl);
     });
 
     return () => {
